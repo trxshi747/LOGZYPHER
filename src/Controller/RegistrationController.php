@@ -40,8 +40,15 @@ class RegistrationController extends AbstractController
         $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
         $user->setPassword($hashedPassword);
         
-        $entityManager->persist($user);
-        $entityManager->flush();
+        try {
+            $entityManager->persist($user);
+            $entityManager->flush();
+        } catch (\Exception $e) {
+            return $this->json([
+                'message' => 'Database error during registration',
+                'error' => $e->getMessage()
+            ], 500);
+        }
         
         return $this->json(['message' => 'User created successfully'], 201);
     }

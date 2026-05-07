@@ -69,9 +69,12 @@ export default function AuthModal({ isOpen, onClose }) {
         login(data.token);
         onClose();
       } else {
-        setErrors({ general: 'Invalid credentials' });
+        const errorData = await response.json();
+        console.error('Login error:', errorData);
+        setErrors({ general: errorData.message || 'Invalid credentials' });
       }
     } catch (error) {
+      console.error('Fetch error during login:', error);
       setErrors({ general: 'An error occurred. Please try again.' });
     } finally {
       setIsLoading(false);
@@ -107,9 +110,11 @@ export default function AuthModal({ isOpen, onClose }) {
         setErrors({ general: 'Registration successful. Please login.' });
       } else {
         const errorData = await response.json();
+        console.error('Registration error:', errorData);
         setErrors({ general: errorData.message || 'Registration failed' });
       }
     } catch (error) {
+      console.error('Fetch error during registration:', error);
       setErrors({ general: 'An error occurred. Please try again.' });
     } finally {
       setIsLoading(false);
