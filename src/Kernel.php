@@ -33,11 +33,18 @@ class Kernel extends BaseKernel
 
         // On Vercel, write JWT keys from ENV to /tmp so LexikJWT can read them as files
         if (isset($_ENV['VERCEL'])) {
-            if (isset($_ENV['JWT_SECRET_KEY_CONTENT']) && !file_exists('/tmp/private.pem')) {
-                file_put_contents('/tmp/private.pem', $_ENV['JWT_SECRET_KEY_CONTENT']);
+            $privatePath = '/tmp/private.pem';
+            $publicPath = '/tmp/public.pem';
+
+            if (isset($_ENV['JWT_SECRET_KEY_CONTENT']) && !file_exists($privatePath)) {
+                if (file_put_contents($privatePath, str_replace('\n', "\n", $_ENV['JWT_SECRET_KEY_CONTENT'])) === false) {
+                    error_log("CRITICAL: Failed to write private key to $privatePath");
+                }
             }
-            if (isset($_ENV['JWT_PUBLIC_KEY_CONTENT']) && !file_exists('/tmp/public.pem')) {
-                file_put_contents('/tmp/public.pem', $_ENV['JWT_PUBLIC_KEY_CONTENT']);
+            if (isset($_ENV['JWT_PUBLIC_KEY_CONTENT']) && !file_exists($publicPath)) {
+                if (file_put_contents($publicPath, str_replace('\n', "\n", $_ENV['JWT_PUBLIC_KEY_CONTENT'])) === false) {
+                    error_log("CRITICAL: Failed to write public key to $publicPath");
+                }
             }
         }
     }
