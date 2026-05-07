@@ -194,7 +194,6 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
   };
 
    const fetchLogData = async () => {
-        setIsLoading(true);
         try {
           const response = await fetch('/show_log_data?_format=json',{
             headers: {
@@ -216,8 +215,6 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
           }
         } catch (error) {
           console.error('Error', error);
-        } finally {
-            setIsLoading(false);
         }
     };
 
