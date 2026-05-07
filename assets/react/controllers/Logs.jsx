@@ -21,14 +21,18 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
   const [currentSearch, setCurrentSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const logsPerPage = 20;
-  const totalLogs = logs.length;
-  const errorLogs = logs.filter(log => log.level === 'ERROR').length;
-  const warningLogs = logs.filter(log => log.level === 'WARNING').length;
-  const infoLogs = logs.filter(log => log.level === 'INFO').length;
-  const debugLogs = logs.filter(log => log.level === 'DEBUG').length;
-  const criticalLogs = logs.filter(log => log.level === 'CRITICAL').length;
+
+  // Safety check: ensure logs is always an array
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  const totalLogs = safeLogs.length;
+  const errorLogs = safeLogs.filter(log => log && log.level === 'ERROR').length;
+  const warningLogs = safeLogs.filter(log => log && log.level === 'WARNING').length;
+  const infoLogs = safeLogs.filter(log => log && log.level === 'INFO').length;
+  const debugLogs = safeLogs.filter(log => log && log.level === 'DEBUG').length;
+  const criticalLogs = safeLogs.filter(log => log && log.level === 'CRITICAL').length;
 
   const LogPie = [
+    // ... rest same using infoLogs, totalLogs etc.
     {
       label: 'INFO',
       value: ((infoLogs/totalLogs)*100).toFixed(2),
@@ -194,12 +198,14 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
           });
           if (response.ok) {
             const data = await response.json();
-            setLogs(data.my_log);
+            // Safety: Ensure it's an array. Handle old object format if present.
+            const actualLogs = Array.isArray(data.my_log) ? data.my_log : (data.my_log?.data || []);
+            setLogs(actualLogs);
             setLastUpdated(new Date().toLocaleString());
-            filterLogs(data.my_log, currentFilter, currentSearch);
+            filterLogs(actualLogs, currentFilter, currentSearch);
             
             // Mettre à jour le nom du fichier si des logs sont chargés
-            if (data.my_log && data.my_log.length > 0) {
+            if (actualLogs && actualLogs.length > 0) {
                 setFileName('Loaded from history');
             }
           }
@@ -209,17 +215,26 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
     };
 
    useEffect(() => {
-        if (onHistoryLoaded) {
-            // Si onHistoryLoaded change, recharger les données
+        if (initialLogs) {
+            const actualLogs = Array.isArray(initialLogs) ? initialLogs : (initialLogs.data || []);
+            setLogs(actualLogs);
+            setFileName('Loaded from history');
+            setLastUpdated(new Date().toLocaleString());
+            filterLogs(actualLogs, currentFilter, currentSearch);
+        } else if (onHistoryLoaded) {
             fetchLogData();
         }
-    }, [onHistoryLoaded]);
+    }, [initialLogs, onHistoryLoaded]);
 
   const filterLogs = (logsToFilter = logs, filter = currentFilter, search = currentSearch) => {
     const searchTerm = search.toLowerCase();
     
-    const filtered = logsToFilter.filter(log => {
-      const matchesFilter = filter === 'all' || log.level.toLowerCase() === filter.toLowerCase();
+    // Safety check: ensure logsToFilter is an array
+    const safeToFilter = Array.isArray(logsToFilter) ? logsToFilter : (logsToFilter?.data || []);
+
+    const filtered = safeToFilter.filter(log => {
+      if (!log) return false;
+      const matchesFilter = filter === 'all' || (log.level && log.level.toLowerCase() === filter.toLowerCase());
       const matchesSearch = searchTerm === '' || 
         (log.message && log.message.toLowerCase().includes(searchTerm.toLowerCase()));
       

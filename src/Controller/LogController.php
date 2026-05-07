@@ -66,38 +66,39 @@ final class LogController extends AbstractController
     public function upload_file(Request $request, #[CurrentUser] ?User $user): Response
     {
         $data = json_decode($request->getContent(), true);
-        
+
         if (!$data || !isset($data['logs']) || !isset($data['filename'])) {
             return $this->json(['message' => 'Invalid data format'], 400);
         }
 
-        $analyzed_file = $data['logs'];
+        $logsData = $data['logs'];
         $filename = $data['filename'];
 
-        // Sauvegarder dans la session
+        // Extraction de l'array de logs réel (si c'est déjà résumé par le client)
+        $analyzed_file = isset($logsData['is_summarized']) ? $logsData['data'] : $logsData;
+
+        // Sauvegarder l'array brut dans la session pour l'affichage immédiat
         $request->getSession()->set('my_log', $analyzed_file);
 
         // Si l'utilisateur est connecté, sauvegarder dans l'historique
         if ($user) {
-            $jsonResult = json_encode($analyzed_file);
-            
+            // Utiliser les données déjà préparées (éventuellement résumées) par le client
+            $jsonResult = json_encode($logsData);
+
             // Tentative de compression
             $compressedData = gzcompress($jsonResult, 9);
-            
-            // Si même compressé c'est trop gros (> 5MB pour garder de la marge sur les 6MB de TiDB)
-            if (strlen($compressedData) > 5000000) {
-                // Stratégie de Résumé : Garder TOUTES les erreurs/warnings, et échantillonner le reste
-                $errors = array_filter($analyzed_file, fn($l) => in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
-                $others = array_filter($analyzed_file, fn($l) => !in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
-                
-                // Échantillonner 10% des autres logs pour réduire la taille
+
+            // Sécurité supplémentaire : si c'est encore trop gros, on re-résume (cas rare avec le client-side parsing)
+            if (strlen($compressedData) > 5000000 && is_array($analyzed_file)) {
+                $errors = array_filter($analyzed_file, fn($l) => in_array(strtoupper($l['level'] ?? ''), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
+                $others = array_filter($analyzed_file, fn($l) => !in_array(strtoupper($l['level'] ?? ''), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
+
                 shuffle($others);
                 $sampledOthers = array_slice($others, 0, (int)(count($others) * 0.1));
-                
+
                 $summarized_file = array_merge($errors, $sampledOthers);
-                // Trier par temps pour garder la cohérence
                 usort($summarized_file, fn($a, $b) => strcmp($a['time'] ?? '', $b['time'] ?? ''));
-                
+
                 $jsonResult = json_encode([
                     'is_summarized' => true,
                     'original_count' => count($analyzed_file),
@@ -121,8 +122,6 @@ final class LogController extends AbstractController
         return $this->json(['message' => 'Logs processed successfully']);
     }
 
-
-
     #[Route('/api/history', name: 'api_history', methods: ['GET'])]
     public function getHistory(#[CurrentUser] ?User $user): Response
     {
@@ -141,18 +140,16 @@ final class LogController extends AbstractController
             $decoded = @gzuncompress(base64_decode($rawContent));
             $analysisResult = json_decode($decoded ?: $rawContent, true);
 
-            // Gérer le format résumé ou brut
+            // Toujours obtenir l'array de logs pour le logCount
             $logs = isset($analysisResult['is_summarized']) ? $analysisResult['data'] : $analysisResult;
-            $isSummarized = isset($analysisResult['is_summarized']);
 
             $historyData[] = [
                 'id' => $item->getId(),
                 'filename' => $item->getFilename(),
                 'uploadedAt' => $item->getUploadedAt()->format('Y-m-d H:i:s'),
                 'logCount' => is_array($logs) ? count($logs) : 0,
-                'isSummarized' => $isSummarized,
+                'isSummarized' => isset($analysisResult['is_summarized']),
                 'originalCount' => $analysisResult['original_count'] ?? (is_array($logs) ? count($logs) : 0)
-                // Remove 'analysisResult' => $logs here to keep the list small
             ];
         }
 
@@ -176,12 +173,15 @@ final class LogController extends AbstractController
         $decoded = @gzuncompress(base64_decode($rawContent));
         $analysisResult = json_decode($decoded ?: $rawContent, true);
 
-        // Save to session so it persists on page reload
-        $request->getSession()->set('my_log', $analysisResult);
+        // Extraire l'array de logs réel
+        $logs = isset($analysisResult['is_summarized']) ? $analysisResult['data'] : $analysisResult;
+
+        // Save only the ARRAY to session
+        $request->getSession()->set('my_log', $logs);
 
         return $this->json([
             'message' => 'History loaded successfully',
-            'logs' => $analysisResult
+            'logs' => $logs // Return only the ARRAY
         ]);
     }
 
