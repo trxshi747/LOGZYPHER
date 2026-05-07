@@ -12,21 +12,12 @@ class DebugController extends AbstractController
     #[Route('/api/debug-system', name: 'api_debug_system')]
     public function debug(Connection $connection): JsonResponse
     {
-        $status = [
-            'database' => 'Unknown',
-            'jwt_private_file' => file_exists('/tmp/private.pem') ? 'Exists' : 'Missing',
-            'jwt_public_file' => file_exists('/tmp/public.pem') ? 'Exists' : 'Missing',
-            'php_version' => PHP_VERSION,
-            'env' => $_ENV['APP_ENV'] ?? 'not set',
-        ];
+        // ... (existing code)
+    }
 
-        try {
-            $connection->connect();
-            $status['database'] = 'Connected Successfully';
-        } catch (\Exception $e) {
-            $status['database'] = 'Error: ' . $e->getMessage();
-        }
-
-        return $this->json($status);
+    #[Route('/debug-test', name: 'api_debug_test')]
+    public function debugTest(): JsonResponse
+    {
+        return $this->json(['message' => 'Routing is working!', 'path' => '/debug-test']);
     }
 }
