@@ -1,3 +1,144 @@
-body {
-    background-color: skyblue;
+/* Styles de base */
+@import "tailwindcss";
+@source not "../../public";
+@tailwind utilities;
+
+@font-face {
+  font-family: "ByteBounce";
+  src: url('../fonts/ByteBounce.ttf') format('truetype');
+   font-display: swap;
 }
+
+* {
+  font-family: "ByteBounce";
+}
+.MuiChartsLabel-root {
+  color: white;
+  font-size: 24px;
+}
+
+
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Tooltip styles */
+.tooltip {
+    position: relative;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+/* Base Styles */
+/* Additional styles for the SEO analyzer */
+.check-item {
+  @apply border-l-4 pl-4 py-2;
+}
+
+.check-item.success {
+  @apply border-green-500 bg-green-50;
+}
+
+.check-item.warning {
+  @apply border-yellow-500 bg-yellow-50;
+}
+
+.check-item.error {
+  @apply border-red-500 bg-red-50;
+}
+
+.issue-item.critical {
+  @apply text-red-800;
+}
+
+.issue-item.warning {
+  @apply text-yellow-800;
+}
+
+.issue-item.info {
+  @apply text-blue-800;
+}
+
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card-light {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.glass-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
