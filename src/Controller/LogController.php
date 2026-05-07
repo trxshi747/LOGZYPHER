@@ -74,12 +74,39 @@ final class LogController extends AbstractController
 
             // Si l'utilisateur est connecté, sauvegarder dans l'historique
             if ($user) {
-                $analysisResult = json_encode($analyzed_file);
+                $jsonResult = json_encode($analyzed_file);
+                
+                // Tentative de compression
+                $compressedData = gzcompress($jsonResult, 9);
+                
+                // Si même compressé c'est trop gros (> 5MB pour garder de la marge sur les 6MB de TiDB)
+                if (strlen($compressedData) > 5000000) {
+                    // Stratégie de Résumé : Garder TOUTES les erreurs/warnings, et échantillonner le reste
+                    $errors = array_filter($analyzed_file, fn($l) => in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
+                    $others = array_filter($analyzed_file, fn($l) => !in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
+                    
+                    // Échantillonner 10% des autres logs pour réduire la taille
+                    shuffle($others);
+                    $sampledOthers = array_slice($others, 0, (int)(count($others) * 0.1));
+                    
+                    $summarized_file = array_merge($errors, $sampledOthers);
+                    // Trier par temps pour garder la cohérence
+                    usort($summarized_file, fn($a, $b) => strcmp($a['time'], $b['time']));
+                    
+                    $jsonResult = json_encode([
+                        'is_summarized' => true,
+                        'original_count' => count($analyzed_file),
+                        'data' => $summarized_file
+                    ]);
+                    $compressedData = gzcompress($jsonResult, 9);
+                }
+
+                $compressedResult = base64_encode($compressedData);
 
                 $history = new History();
                 $history->setUser($user);
                 $history->setFilename($uploaded_file->getClientOriginalName());
-                $history->setFileContent($analysisResult);
+                $history->setFileContent($compressedResult);
                 $history->setUploadedAt(new \DateTime());
 
                 $this->entityManager->persist($history);
@@ -108,13 +135,22 @@ final class LogController extends AbstractController
 
         $historyData = [];
         foreach ($history as $item) {
-            $analysisResult = json_decode($item->getFileContent(), true);
+            $rawContent = $item->getFileContent();
+            $decoded = @gzuncompress(base64_decode($rawContent));
+            $analysisResult = json_decode($decoded ?: $rawContent, true);
+
+            // Gérer le format résumé ou brut
+            $logs = isset($analysisResult['is_summarized']) ? $analysisResult['data'] : $analysisResult;
+            $isSummarized = isset($analysisResult['is_summarized']);
+
             $historyData[] = [
                 'id' => $item->getId(),
                 'filename' => $item->getFilename(),
                 'uploadedAt' => $item->getUploadedAt()->format('Y-m-d H:i:s'),
-                'logCount' => is_array($analysisResult) ? count($analysisResult) : 0,
-                'analysisResult' => $analysisResult
+                'logCount' => is_array($logs) ? count($logs) : 0,
+                'isSummarized' => $isSummarized,
+                'originalCount' => $analysisResult['original_count'] ?? count($logs),
+                'analysisResult' => $logs
             ];
         }
 

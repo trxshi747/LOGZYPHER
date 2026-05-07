@@ -1,11 +1,17 @@
 import Header from "./Header.jsx"
 import Logs from "./Logs.jsx"
 import Background from "./Background.jsx"
+import WelcomeModal from "./WelcomeModal.jsx"
 import { AuthProvider } from "./AuthContext"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export default function MyApp(){
     const [historyLoaded, setHistoryLoaded] = useState(0);
+    const [isWelcomeOpen, setIsWelcomeOpen] = useState(true);
+
+    const closeWelcome = () => {
+        setIsWelcomeOpen(false);
+    };
 
     const handleHistoryLoaded = async () => {
         // Incrémenter un compteur pour forcer le re-render
@@ -24,6 +30,7 @@ export default function MyApp(){
                         <Logs key={historyLoaded} onHistoryLoaded={handleHistoryLoaded} />
                     </div>
                 </div>
+                <WelcomeModal isOpen={isWelcomeOpen} onClose={closeWelcome} />
             </div>  
         </AuthProvider>   
     )

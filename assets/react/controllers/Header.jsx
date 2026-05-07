@@ -19,7 +19,18 @@ export default function Header({ onHistoryLoaded }){
     };
 
     return (
-        <header className="mb-8 flex flex-col items-center">
+        <header className="mb-8 flex flex-col items-center relative">
+            <div className="absolute top-0 right-0 mt-4 mr-4">
+                <a 
+                    href="https://www.instagram.com/yassirkarrouti/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-12 h-12 rounded-full glass-button border border-white/30 text-white text-3xl transition-all duration-300 hover:scale-110 hover:bg-white/20 shadow-lg"
+                    title="Follow me on Instagram"
+                >
+                    <i className="fab fa-instagram"></i>
+                </a>
+            </div>
             <div className="flex justify-center w-full mb-6 mt-10">
                 <TextAnimation fontSize={120} fontWeight={120}>LOGZYPHER</TextAnimation>
             </div>

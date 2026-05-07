@@ -1,6 +1,9 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        options:
+            1007: true # PDO::MYSQL_ATTR_SSL_CA
+            1014: false # PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT
 
         # IMPORTANT: You MUST configure your server version,
         # either here or in the DATABASE_URL env var (see .env file)
