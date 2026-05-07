@@ -4,7 +4,8 @@ import {
   faUpload, faSearch, faLayerGroup, 
   faExclamationCircle, faExclamationTriangle, 
   faInfoCircle, faBug, faList, faClock, 
-  faChevronLeft, faChevronRight, faBugSlash
+  faChevronLeft, faChevronRight, faBugSlash,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 import { PieChart } from '@mui/x-charts/PieChart';
 import { useAuth } from './AuthContext';
@@ -20,6 +21,7 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
   const [currentFilter, setCurrentFilter] = useState('all');
   const [currentSearch, setCurrentSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const logsPerPage = 20;
 
   // Safety check: ensure logs is always an array
@@ -73,46 +75,43 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
     const file = event.target.files[0];
     if (!file) return;
     setFileName(file.name);
+    setIsLoading(true);
     
     const reader = new FileReader();
     reader.onload = async (e) => {
-        const text = e.target.result;
-        const lines = text.split('\n');
-        let analyzedLogs = [];
-        
-        // Regex used in LogController.php
-        const pattern = /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2})\] (\w+)\.(\w+): (.*)$/;
-        
-        lines.forEach(line => {
-            const matches = line.match(pattern);
-            if (matches) {
-                analyzedLogs.push({
-                    time: matches[1],
-                    channel: matches[2],
-                    level: matches[3],
-                    message: matches[4]
-                });
-            }
-        });
-
-        const originalCount = analyzedLogs.length;
-        let isSummarized = false;
-
-        // Vercel Limit Handling: If data is too large, summarize it on the client
-        // A rough estimate of JSON size: each log entry is ~200-300 bytes.
-        // 15,000 entries is ~3-4MB. Let's cap it at 10,000 for safety.
-        if (analyzedLogs.length > 10000) {
-            isSummarized = true;
-            const errors = analyzedLogs.filter(l => ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING'].includes(l.level.toUpperCase()));
-            const others = analyzedLogs.filter(l => !['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING'].includes(l.level.toUpperCase()));
-            
-            // Sample 10% of others
-            const sampledOthers = others.filter((_, index) => index % 10 === 0);
-            
-            analyzedLogs = [...errors, ...sampledOthers].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-        }
-
         try {
+            const text = e.target.result;
+            const lines = text.split('\n');
+            let analyzedLogs = [];
+            
+            // Regex used in LogController.php
+            const pattern = /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2})\] (\w+)\.(\w+): (.*)$/;
+            
+            lines.forEach(line => {
+                const matches = line.match(pattern);
+                if (matches) {
+                    analyzedLogs.push({
+                        time: matches[1],
+                        channel: matches[2],
+                        level: matches[3],
+                        message: matches[4]
+                    });
+                }
+            });
+
+            const originalCount = analyzedLogs.length;
+            let isSummarized = false;
+
+            // Vercel Limit Handling: If data is too large, summarize it on the client
+            if (analyzedLogs.length > 10000) {
+                isSummarized = true;
+                const errors = analyzedLogs.filter(l => ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING'].includes(l.level.toUpperCase()));
+                const others = analyzedLogs.filter(l => !['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING'].includes(l.level.toUpperCase()));
+                
+                const sampledOthers = others.filter((_, index) => index % 10 === 0);
+                analyzedLogs = [...errors, ...sampledOthers].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+            }
+
             const token = localStorage.getItem('jwtToken');
             const headers = {
                 'Content-Type': 'application/json'
@@ -148,7 +147,6 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
                 if (onHistoryLoaded) onHistoryLoaded();
             } else {
                 console.error('Upload failed:', response.statusText);
-                // If it still fails with 413, we might need even more aggressive sampling
                 if (response.status === 413) {
                     alert('Log file is too large for the server even after compression. Showing local results only.');
                     setLogs(analyzedLogs);
@@ -158,7 +156,13 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
             }
         } catch (error) {
             console.error('Error:', error);
+        } finally {
+            setIsLoading(false);
         }
+    };
+    reader.onerror = () => {
+        setIsLoading(false);
+        alert('Error reading file');
     };
     reader.readAsText(file);
   }
@@ -190,6 +194,7 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
   };
 
    const fetchLogData = async () => {
+        setIsLoading(true);
         try {
           const response = await fetch('/show_log_data?_format=json',{
             headers: {
@@ -211,6 +216,8 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
           }
         } catch (error) {
           console.error('Error', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -309,7 +316,24 @@ export default function Logs({ onHistoryLoaded, initialLogs }) {
   const paginatedLogs = filteredLogs.slice(startIdx, endIdx);
 
   return (
-      <div>
+      <div className="relative">
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[10000] flex flex-col items-center justify-center transition-all duration-500">
+          <div className="glass-card p-12 rounded-3xl flex flex-col items-center gap-6 shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/20">
+            <div className="relative">
+              <FontAwesomeIcon icon={faSpinner} className="text-white text-8xl animate-spin" />
+              <div className="absolute inset-0 blur-2xl bg-white/20 animate-pulse rounded-full"></div>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-5xl text-white font-bold tracking-wider uppercase">Analyzing Logs</p>
+              <p className="text-2xl text-white/60">Processing data through our neural engine...</p>
+            </div>
+            <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden mt-4">
+              <div className="h-full bg-white/40 animate-progress"></div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="glass-card rounded-xl p-6 mb-8 shadow-2xl">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
