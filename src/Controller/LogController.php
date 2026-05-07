@@ -62,61 +62,63 @@ final class LogController extends AbstractController
         return $this->render('home/index.html.twig', ['my_log' => $my_log]);
     }
 
-     #[Route('/api/upload_file', name: 'upload_file', methods: ['POST'])]
+    #[Route('/api/upload_file', name: 'upload_file', methods: ['POST'])]
     public function upload_file(Request $request, #[CurrentUser] ?User $user): Response
     {
-        $uploaded_file = $request->files->get('log_file');
-
-        if (in_array($uploaded_file->getClientOriginalExtension(), ['log', 'txt'])) {
-            // Sauvegarder le fichier dans la session
-            $analyzed_file = $this->log_file_analyzer($uploaded_file->getPathname());
-            $request->getSession()->set('my_log', $analyzed_file);
-
-            // Si l'utilisateur est connecté, sauvegarder dans l'historique
-            if ($user) {
-                $jsonResult = json_encode($analyzed_file);
-                
-                // Tentative de compression
-                $compressedData = gzcompress($jsonResult, 9);
-                
-                // Si même compressé c'est trop gros (> 5MB pour garder de la marge sur les 6MB de TiDB)
-                if (strlen($compressedData) > 5000000) {
-                    // Stratégie de Résumé : Garder TOUTES les erreurs/warnings, et échantillonner le reste
-                    $errors = array_filter($analyzed_file, fn($l) => in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
-                    $others = array_filter($analyzed_file, fn($l) => !in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
-                    
-                    // Échantillonner 10% des autres logs pour réduire la taille
-                    shuffle($others);
-                    $sampledOthers = array_slice($others, 0, (int)(count($others) * 0.1));
-                    
-                    $summarized_file = array_merge($errors, $sampledOthers);
-                    // Trier par temps pour garder la cohérence
-                    usort($summarized_file, fn($a, $b) => strcmp($a['time'], $b['time']));
-                    
-                    $jsonResult = json_encode([
-                        'is_summarized' => true,
-                        'original_count' => count($analyzed_file),
-                        'data' => $summarized_file
-                    ]);
-                    $compressedData = gzcompress($jsonResult, 9);
-                }
-
-                $compressedResult = base64_encode($compressedData);
-
-                $history = new History();
-                $history->setUser($user);
-                $history->setFilename($uploaded_file->getClientOriginalName());
-                $history->setFileContent($compressedResult);
-                $history->setUploadedAt(new \DateTime());
-
-                $this->entityManager->persist($history);
-                $this->entityManager->flush();
-            }
-
-            return $this->redirectToRoute('show_log_data');
+        $data = json_decode($request->getContent(), true);
+        
+        if (!$data || !isset($data['logs']) || !isset($data['filename'])) {
+            return $this->json(['message' => 'Invalid data format'], 400);
         }
 
-        return $this->redirectToRoute('show_log_data');
+        $analyzed_file = $data['logs'];
+        $filename = $data['filename'];
+
+        // Sauvegarder dans la session
+        $request->getSession()->set('my_log', $analyzed_file);
+
+        // Si l'utilisateur est connecté, sauvegarder dans l'historique
+        if ($user) {
+            $jsonResult = json_encode($analyzed_file);
+            
+            // Tentative de compression
+            $compressedData = gzcompress($jsonResult, 9);
+            
+            // Si même compressé c'est trop gros (> 5MB pour garder de la marge sur les 6MB de TiDB)
+            if (strlen($compressedData) > 5000000) {
+                // Stratégie de Résumé : Garder TOUTES les erreurs/warnings, et échantillonner le reste
+                $errors = array_filter($analyzed_file, fn($l) => in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
+                $others = array_filter($analyzed_file, fn($l) => !in_array(strtoupper($l['level']), ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING']));
+                
+                // Échantillonner 10% des autres logs pour réduire la taille
+                shuffle($others);
+                $sampledOthers = array_slice($others, 0, (int)(count($others) * 0.1));
+                
+                $summarized_file = array_merge($errors, $sampledOthers);
+                // Trier par temps pour garder la cohérence
+                usort($summarized_file, fn($a, $b) => strcmp($a['time'] ?? '', $b['time'] ?? ''));
+                
+                $jsonResult = json_encode([
+                    'is_summarized' => true,
+                    'original_count' => count($analyzed_file),
+                    'data' => $summarized_file
+                ]);
+                $compressedData = gzcompress($jsonResult, 9);
+            }
+
+            $compressedResult = base64_encode($compressedData);
+
+            $history = new History();
+            $history->setUser($user);
+            $history->setFilename($filename);
+            $history->setFileContent($compressedResult);
+            $history->setUploadedAt(new \DateTime());
+
+            $this->entityManager->persist($history);
+            $this->entityManager->flush();
+        }
+
+        return $this->json(['message' => 'Logs processed successfully']);
     }
 
 

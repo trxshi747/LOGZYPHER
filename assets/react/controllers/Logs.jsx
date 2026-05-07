@@ -69,31 +69,61 @@ export default function Logs({ onHistoryLoaded }) {
     const file = event.target.files[0];
     if (!file) return;
     setFileName(file.name);
-    const formData = new FormData();
-    formData.append('log_file', file);
     
-    try {
-        const token = localStorage.getItem('jwtToken');
-        const headers = {};
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        const analyzedLogs = [];
         
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
+        // Regex used in LogController.php
+        const pattern = /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2})\] (\w+)\.(\w+): (.*)$/;
         
-        const response = await fetch('/api/upload_file', { 
-            method: 'POST', 
-            body: formData,
-            headers: headers
+        lines.forEach(line => {
+            const matches = line.match(pattern);
+            if (matches) {
+                analyzedLogs.push({
+                    time: matches[1],
+                    channel: matches[2],
+                    level: matches[3],
+                    message: matches[4]
+                });
+            }
         });
-        
-        if (response.ok) {
-            setTimeout(() => { fetchLogData(); } , 500);
-        } else {
-            console.error('Upload failed:', response.statusText);
+
+        try {
+            const token = localStorage.getItem('jwtToken');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
+            const response = await fetch('/api/upload_file', { 
+                method: 'POST', 
+                headers: headers,
+                body: JSON.stringify({
+                    logs: analyzedLogs,
+                    filename: file.name
+                })
+            });
+            
+            if (response.ok) {
+                setLogs(analyzedLogs);
+                setLastUpdated(new Date().toLocaleString());
+                filterLogs(analyzedLogs, currentFilter, currentSearch);
+                // Also trigger history refresh if needed
+                if (onHistoryLoaded) onHistoryLoaded();
+            } else {
+                console.error('Upload failed:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error:', error);
         }
-    } catch (error) {
-        console.error('Error:', error);
-    }
+    };
+    reader.readAsText(file);
   }
 
   const testAuthentication = async () => {
