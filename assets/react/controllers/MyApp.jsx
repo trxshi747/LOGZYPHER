@@ -13,7 +13,12 @@ export default function MyApp(){
         setIsWelcomeOpen(false);
     };
 
-    const handleHistoryLoaded = async () => {
+    const [historyLogs, setHistoryLogs] = useState(null);
+
+    const handleHistoryLoaded = async (logs) => {
+        if (logs) {
+            setHistoryLogs(logs);
+        }
         // Incrémenter un compteur pour forcer le re-render
         setHistoryLoaded(prev => prev + 1);
     };
@@ -27,7 +32,7 @@ export default function MyApp(){
                     </div>
                     <div className="container mx-auto px-4 py-8">
                         <Header onHistoryLoaded={handleHistoryLoaded} />
-                        <Logs key={historyLoaded} onHistoryLoaded={handleHistoryLoaded} />
+                        <Logs key={historyLoaded} onHistoryLoaded={handleHistoryLoaded} initialLogs={historyLogs} />
                     </div>
                 </div>
                 <WelcomeModal isOpen={isWelcomeOpen} onClose={closeWelcome} />

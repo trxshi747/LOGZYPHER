@@ -10,12 +10,12 @@ import { PieChart } from '@mui/x-charts/PieChart';
 import { useAuth } from './AuthContext';
 import "../../styles/app.css";
 
-export default function Logs({ onHistoryLoaded }) {
+export default function Logs({ onHistoryLoaded, initialLogs }) {
   const { user } = useAuth();
   
-  const [logs, setLogs] = useState([]);
-  const [fileName, setFileName] = useState('No file selected');
-  const [lastUpdated, setLastUpdated] = useState('Never');
+  const [logs, setLogs] = useState(initialLogs || []);
+  const [fileName, setFileName] = useState(initialLogs ? 'Loaded from history' : 'No file selected');
+  const [lastUpdated, setLastUpdated] = useState(initialLogs ? new Date().toLocaleString() : 'Never');
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [currentFilter, setCurrentFilter] = useState('all');
   const [currentSearch, setCurrentSearch] = useState('');
@@ -74,7 +74,7 @@ export default function Logs({ onHistoryLoaded }) {
     reader.onload = async (e) => {
         const text = e.target.result;
         const lines = text.split('\n');
-        const analyzedLogs = [];
+        let analyzedLogs = [];
         
         // Regex used in LogController.php
         const pattern = /^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2})\] (\w+)\.(\w+): (.*)$/;
@@ -91,6 +91,23 @@ export default function Logs({ onHistoryLoaded }) {
             }
         });
 
+        const originalCount = analyzedLogs.length;
+        let isSummarized = false;
+
+        // Vercel Limit Handling: If data is too large, summarize it on the client
+        // A rough estimate of JSON size: each log entry is ~200-300 bytes.
+        // 15,000 entries is ~3-4MB. Let's cap it at 10,000 for safety.
+        if (analyzedLogs.length > 10000) {
+            isSummarized = true;
+            const errors = analyzedLogs.filter(l => ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING'].includes(l.level.toUpperCase()));
+            const others = analyzedLogs.filter(l => !['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY', 'WARNING'].includes(l.level.toUpperCase()));
+            
+            // Sample 10% of others
+            const sampledOthers = others.filter((_, index) => index % 10 === 0);
+            
+            analyzedLogs = [...errors, ...sampledOthers].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        }
+
         try {
             const token = localStorage.getItem('jwtToken');
             const headers = {
@@ -101,23 +118,39 @@ export default function Logs({ onHistoryLoaded }) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
             
+            const payload = {
+                logs: analyzedLogs,
+                filename: file.name
+            };
+
+            if (isSummarized) {
+                payload.logs = {
+                    is_summarized: true,
+                    original_count: originalCount,
+                    data: analyzedLogs
+                };
+            }
+
             const response = await fetch('/api/upload_file', { 
                 method: 'POST', 
                 headers: headers,
-                body: JSON.stringify({
-                    logs: analyzedLogs,
-                    filename: file.name
-                })
+                body: JSON.stringify(payload)
             });
             
             if (response.ok) {
                 setLogs(analyzedLogs);
                 setLastUpdated(new Date().toLocaleString());
                 filterLogs(analyzedLogs, currentFilter, currentSearch);
-                // Also trigger history refresh if needed
                 if (onHistoryLoaded) onHistoryLoaded();
             } else {
                 console.error('Upload failed:', response.statusText);
+                // If it still fails with 413, we might need even more aggressive sampling
+                if (response.status === 413) {
+                    alert('Log file is too large for the server even after compression. Showing local results only.');
+                    setLogs(analyzedLogs);
+                    setLastUpdated(new Date().toLocaleString());
+                    filterLogs(analyzedLogs, currentFilter, currentSearch);
+                }
             }
         } catch (error) {
             console.error('Error:', error);

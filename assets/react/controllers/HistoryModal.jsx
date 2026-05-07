@@ -60,8 +60,9 @@ export default function HistoryModal({ isOpen, onClose, onLoadHistory }) {
       });
       
       if (response.ok) {
+        const data = await response.json();
         // Appeler la fonction parent pour mettre à jour les logs
-        await onLoadHistory();
+        await onLoadHistory(data.logs);
         onClose();
       } else {
         const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));

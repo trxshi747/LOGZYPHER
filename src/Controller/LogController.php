@@ -151,8 +151,8 @@ final class LogController extends AbstractController
                 'uploadedAt' => $item->getUploadedAt()->format('Y-m-d H:i:s'),
                 'logCount' => is_array($logs) ? count($logs) : 0,
                 'isSummarized' => $isSummarized,
-                'originalCount' => $analysisResult['original_count'] ?? count($logs),
-                'analysisResult' => $logs
+                'originalCount' => $analysisResult['original_count'] ?? (is_array($logs) ? count($logs) : 0)
+                // Remove 'analysisResult' => $logs here to keep the list small
             ];
         }
 
@@ -172,11 +172,17 @@ final class LogController extends AbstractController
             return $this->json(['message' => 'History not found'], 404);
         }
 
-        // Charger l'analyse depuis file_content
-        $analysisResult = json_decode($history->getFileContent(), true);
+        $rawContent = $history->getFileContent();
+        $decoded = @gzuncompress(base64_decode($rawContent));
+        $analysisResult = json_decode($decoded ?: $rawContent, true);
+
+        // Save to session so it persists on page reload
         $request->getSession()->set('my_log', $analysisResult);
 
-        return $this->json(['message' => 'History loaded successfully']);
+        return $this->json([
+            'message' => 'History loaded successfully',
+            'logs' => $analysisResult
+        ]);
     }
 
     #[Route('/api/history/{id}/download', name: 'api_history_download', methods: ['GET'])]

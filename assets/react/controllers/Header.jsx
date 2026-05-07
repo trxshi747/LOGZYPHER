@@ -11,10 +11,10 @@ export default function Header({ onHistoryLoaded }){
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const { user, logout } = useAuth();
 
-    const handleLoadHistory = async () => {
+    const handleLoadHistory = async (logs) => {
         // Appeler la fonction parent pour recharger les logs
         if (onHistoryLoaded) {
-            await onHistoryLoaded();
+            await onHistoryLoaded(logs);
         }
     };
 
