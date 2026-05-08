@@ -4,6 +4,7 @@ import Background from "./Background.jsx"
 import WelcomeModal from "./WelcomeModal.jsx"
 import { AuthProvider } from "./AuthContext"
 import { useState, useEffect } from "react"
+import { Analytics } from "@vercel/analytics/react"
 
 export default function MyApp(){
     const [historyLoaded, setHistoryLoaded] = useState(0);
@@ -36,6 +37,7 @@ export default function MyApp(){
                     </div>
                 </div>
                 <WelcomeModal isOpen={isWelcomeOpen} onClose={closeWelcome} />
+                <Analytics />
             </div>  
         </AuthProvider>   
     )
