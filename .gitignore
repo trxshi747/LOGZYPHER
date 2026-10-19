@@ -63,3 +63,8 @@ cookies.txt
 .DS_Store
 Thumbs.db
 ###< editors and OS ###
+
+###> dotenv location ###
+/.env
+/config/env/.env.*
+###< dotenv location ###

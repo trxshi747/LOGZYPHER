@@ -97,6 +97,9 @@
         "symfony": {
             "allow-contrib": false,
             "require": "7.3.*"
+        },
+        "runtime": {
+            "dotenv_path": "config/env/.env"
         }
     },
     "require-dev": {
