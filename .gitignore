@@ -63,7 +63,3 @@ cookies.txt
 .DS_Store
 Thumbs.db
 ###< editors and OS ###
-
-###> environment ###
-/.env
-###< environment ###
