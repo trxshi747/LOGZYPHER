@@ -29,3 +29,37 @@ yarn-error.log
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/*.pem
 ###< lexik/jwt-authentication-bundle ###
+
+###> sensitive files ###
+# Real secrets belong in .env.local (local) or in Vercel environment variables (production)
+/.env.dev
+/.env.test
+/.env.prod
+/.env.*.php
+.env.local
+/config/jwt/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.der
+*.jks
+/config/secrets/*/*.decrypt.private.php
+youtube_cookies.txt
+cookies.txt
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.log
+/.vercel/
+.env*.local
+###< sensitive files ###
+
+###> editors and OS ###
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+###< editors and OS ###
